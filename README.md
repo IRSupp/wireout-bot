@@ -26,7 +26,7 @@ docker compose version
 python3 --version
 ```
 
-نصاب ربات روی Ubuntu 24.04 می‌تواند با تأیید شما پیش‌نیازهای نصب‌نشده را نصب کند. برای نصب دستی Docker از [راهنمای رسمی Ubuntu](https://docs.docker.com/engine/install/ubuntu/) استفاده کنید.
+نصاب ربات روی Ubuntu 24.04، در صورت نبودن Docker یا Python، پیش‌نیازها را خودکار نصب می‌کند. نصب جدید Docker شامل Docker Compose نیز می‌شود و سرویس Docker خودکار راه‌اندازی می‌شود. نصب Docker موجود حذف یا جایگزین نمی‌شود. برای نصب دستی Docker از [راهنمای رسمی Ubuntu](https://docs.docker.com/engine/install/ubuntu/) استفاده کنید.
 
 ## ۲. نصب ربات
 
@@ -36,7 +36,7 @@ python3 --version
 curl -fsSL https://raw.githubusercontent.com/IRSupp/wireout-bot/main/install.sh | sudo bash
 ```
 
-نصاب فایل‌های موردنیاز را از GitHub در `/opt/wireout` قرار می‌دهد، پیش‌نیازهای لازم را روی Ubuntu 24.04 با تأیید شما نصب می‌کند و ربات را از Docker Hub دریافت می‌کند. فایل ZIP لازم نیست. اگر `curl` نصب نیست، ابتدا `sudo apt update && sudo apt install -y curl` را اجرا کنید.
+نصاب فایل‌های موردنیاز را از GitHub در `/opt/wireout` قرار می‌دهد، پیش‌نیازهای نصب‌نشده را روی Ubuntu 24.04 به‌صورت خودکار نصب می‌کند و ربات را از Docker Hub دریافت می‌کند. فایل ZIP لازم نیست. اگر `curl` نصب نیست، ابتدا `sudo apt update && sudo apt install -y curl` را اجرا کنید.
 
 این دستور باید در ترمینال تعاملی SSH اجرا شود. فایل تنظیمات نصب قبلی را بازنویسی نمی‌کند. دستورهای مدیریت بعدی را از پوشهٔ `/opt/wireout` اجرا کنید.
 

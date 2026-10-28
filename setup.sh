@@ -15,11 +15,7 @@ if ! command -v python3 >/dev/null || ! command -v docker >/dev/null; then
     echo "Automatic prerequisite installation supports Ubuntu 24.04 only. Install Python 3.11+ and Docker manually on other distributions."
     exit 1
   fi
-  read -r -p "Install missing prerequisites from Ubuntu and Docker's official repositories? [y/N] " install_deps
-  if [[ "$install_deps" != y && "$install_deps" != Y ]]; then
-    echo "No packages were installed. Install the prerequisites, then run again."
-    exit 1
-  fi
+  echo "Installing missing prerequisites automatically from Ubuntu and Docker's official repositories..."
   apt-get update
   apt-get install -y python3 ca-certificates curl
   if ! command -v docker >/dev/null; then
@@ -48,5 +44,9 @@ DOCKER_REPO
     apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
     systemctl enable --now docker
   fi
+fi
+if ! docker compose version >/dev/null 2>&1; then
+  echo 'Docker Compose v2 is missing. Install the Docker Compose plugin for your existing Docker installation, then run again.'
+  exit 1
 fi
 exec python3 installer.py "$@"
