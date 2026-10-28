@@ -84,7 +84,7 @@ def main():
         if len(password) >= 12 and password == getpass.getpass("Confirm web admin password: "):
             break
         print("Passwords must match and contain at least 12 characters.")
-    port = ask("Local web panel port", default="8080", pattern=r"[0-9]{1,5}")
+    port = ask("Web panel port", default="8080", pattern=r"[0-9]{1,5}")
     if not 1024 <= int(port) <= 65535:
         raise SystemExit("Port must be between 1024 and 65535.")
     db_password = secrets.token_hex(32)
@@ -107,8 +107,9 @@ def main():
     compose("up", "-d", "--wait", "db")
     compose("run", "--rm", "init")
     compose("up", "-d", "bot", "web")
-    print(f"Installation complete. Web panel: http://127.0.0.1:{port}")
-    print("Use an SSH tunnel for remote access, or configure HTTPS before exposing the panel.")
+    print(f"Installation complete. Web panel: http://YOUR_SERVER_IP:{port}")
+    print(f"Replace YOUR_SERVER_IP with your server's public IP. Allow TCP port {port} in your server/provider firewall if required.")
+    print("For encrypted browser access, configure a domain and HTTPS reverse proxy.")
     print("Keep app.env and database backups private. Never delete or regenerate FERNET_KEY or HARDWARE_ID during upgrades.")
 
 

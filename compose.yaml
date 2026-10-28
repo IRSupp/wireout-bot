@@ -47,7 +47,7 @@ services:
     <<: *runtime
     command: [web]
     ports:
-      - '127.0.0.1:${WEB_PORT:-8080}:8080'
+      - '0.0.0.0:${WEB_PORT:-8080}:8080'
     healthcheck:
       test: [CMD, curl, --fail, --silent, http://127.0.0.1:8080/health]
       interval: 10s
