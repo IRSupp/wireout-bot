@@ -1,0 +1,15 @@
+*.env
+.env*
+backups/
+*.dump
+*.key
+*.pem
+__pycache__/
+*.pyc
+
+# Agent enrollment state and private connection exports
+pairing.json
+pairing.lock
+server-info.txt
+wgbot.conf
+*.tar.gz

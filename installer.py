@@ -17,13 +17,23 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 
 
+def secret_input(label):
+    print("Hidden input: typing and paste work, but no characters or stars are displayed.", flush=True)
+    print("Paste with your terminal's paste command (usually right-click or Ctrl+Shift+V), then press Enter.", flush=True)
+    value = getpass.getpass(label + ": ")
+    if value:
+        print("Input received.", flush=True)
+    return value
+
+
 def run(*args, **kwargs):
     return subprocess.run(args, check=True, cwd=ROOT, **kwargs)
 
 
 def ask(label, *, secret=False, default="", pattern=None):
     while True:
-        value = (getpass.getpass if secret else input)(label + (f" [{default}]" if default else "") + ": ").strip() or default
+        prompt = label + (f" [{default}]" if default else "")
+        value = (secret_input(prompt) if secret else input(prompt + ": ")).strip() or default
         if value and not any(c in value for c in "\r\n\0") and (not pattern or re.fullmatch(pattern, value)):
             return value
         print("Please enter a valid value.")
@@ -81,7 +91,7 @@ def main():
     username = ask("Web admin username", default="admin", pattern=r"[a-zA-Z0-9_.-]+")
     while True:
         password = ask("Web admin password (at least 12 characters)", secret=True)
-        if len(password) >= 12 and password == getpass.getpass("Confirm web admin password: "):
+        if len(password) >= 12 and password == secret_input("Confirm web admin password"):
             break
         print("Passwords must match and contain at least 12 characters.")
     port = ask("Web panel port", default="8080", pattern=r"[0-9]{1,5}")

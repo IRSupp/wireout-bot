@@ -49,4 +49,8 @@ if ! docker compose version >/dev/null 2>&1; then
   echo 'Docker Compose v2 is missing. Install the Docker Compose plugin for your existing Docker installation, then run again.'
   exit 1
 fi
-exec python3 installer.py "$@"
+if ! { exec 3<>/dev/tty; } 2>/dev/null; then
+  echo 'An interactive SSH terminal is required. Connect normally (or use ssh -t), then run this installer again.'
+  exit 1
+fi
+exec python3 installer.py "$@" <&3
