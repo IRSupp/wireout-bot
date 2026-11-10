@@ -42,6 +42,7 @@ import subprocess
 import sys
 import threading
 import tempfile
+import ssl
 from pathlib import Path
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
@@ -61,6 +62,32 @@ _PUBKEY_RE = re.compile(r"^[A-Za-z0-9+/]{43}=$")          # کلید عمومی 
 _IP_RE = re.compile(r"^[0-9a-fA-F:.]+(/\d{1,3})?$")        # IPv4/IPv6 با CIDR اختیاری
 _MUTATION_LOCK = threading.Lock()
 MAX_BODY = 4096
+
+
+class AgentServer(ThreadingHTTPServer):
+    """Bound simultaneous TLS connections, including clients which never finish a handshake."""
+    daemon_threads = True
+    request_queue_size = 32
+
+    def __init__(self, *args, **kwargs):
+        self._slots = threading.BoundedSemaphore(32)
+        super().__init__(*args, **kwargs)
+
+    def process_request(self, request, client_address):
+        if not self._slots.acquire(blocking=False):
+            self.shutdown_request(request)
+            return
+        try:
+            super().process_request(request, client_address)
+        except BaseException:
+            self._slots.release()
+            raise
+
+    def process_request_thread(self, request, client_address):
+        try:
+            super().process_request_thread(request, client_address)
+        finally:
+            self._slots.release()
 
 
 def _run(args) -> tuple[int, str, str]:
@@ -189,7 +216,11 @@ class Handler(BaseHTTPRequestHandler):
         if not auth.startswith(prefix):
             return False
         given = auth[len(prefix):]
-        return bool(TOKEN) and hmac.compare_digest(given.encode("utf-8"), TOKEN.encode("utf-8"))
+        current = TOKEN
+        if os.environ.get('WG_AGENT_PAIRING') == '1':
+            import pairing
+            current = pairing.token(TOKEN)
+        return bool(current) and hmac.compare_digest(given.encode("utf-8"), current.encode("utf-8"))
 
     def _body_json(self) -> dict:
         try:
@@ -217,6 +248,14 @@ class Handler(BaseHTTPRequestHandler):
         try:
             if self.path == "/health":
                 self._send(200, op_health())
+            elif self.path == '/info' and os.environ.get('WG_AGENT_PAIRING') == '1':
+                import pairing
+                info = pairing.metadata()
+                rc, key, _ = _run([WG_BIN, 'show', IFACE, 'public-key'])
+                rc2, port, _ = _run([WG_BIN, 'show', IFACE, 'listen-port'])
+                if rc or rc2: raise RuntimeError('WireGuard unavailable')
+                info.update(server_public_key=key.strip(), port=int(port), iface=IFACE)
+                self._send(200, info)
             elif self.path == "/transfer":
                 self._send(200, op_transfer())
             else:
@@ -225,6 +264,21 @@ class Handler(BaseHTTPRequestHandler):
             self._send(500, {"ok": False, "error": str(e)})
 
     def do_POST(self):  # noqa: N802
+        if self.path == '/pair' and os.environ.get('WG_AGENT_PAIRING') == '1':
+            import pairing
+            try:
+                data = self._body_json()
+                # Only consume the code when persistent WireGuard state is healthy.
+                health = op_health()
+                if not health.get('persistent'):
+                    self._send(503, {'ok': False}); return
+                ok = pairing.claim(data.get('code'), data.get('token'))
+                self._send(200 if ok else 403, {'ok': ok})
+            except ValueError:
+                self._send(400, {'ok': False})
+            except Exception:
+                self._send(503, {'ok': False})
+            return
         if not self._authed():
             self._send(401, {"ok": False, "error": "unauthorized"})
             return
@@ -248,7 +302,17 @@ def main():
         log.error("WG_AGENT_TOKEN تنظیم نشده — سرویس بالا نمی‌آید.")
         sys.exit(1)
     log.info("agent روی %s:%s برای اینترفیس %s (wg=%s)", HOST, PORT, IFACE, WG_BIN)
-    httpd = ThreadingHTTPServer((HOST, PORT), Handler)
+    httpd = AgentServer((HOST, PORT), Handler)
+    cert = os.environ.get('WG_AGENT_TLS_CERT')
+    key = os.environ.get('WG_AGENT_TLS_KEY')
+    if os.environ.get('WG_AGENT_PAIRING') == '1' and not (cert and key):
+        raise RuntimeError('Pairing requires TLS')
+    if cert and key:
+        ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        ctx.minimum_version = ssl.TLSVersion.TLSv1_2
+        ctx.load_cert_chain(cert, key)
+        # Handshake occurs on first read in a worker, under Handler.setup's timeout.
+        httpd.socket = ctx.wrap_socket(httpd.socket, server_side=True, do_handshake_on_connect=False)
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:
